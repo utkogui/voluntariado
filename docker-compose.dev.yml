@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL para desenvolvimento
+  postgres:
+    image: postgres:15-alpine
+    container_name: volunteer_app_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: volunteer_app_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - volunteer_network_dev
+
+  # Redis para desenvolvimento
+  redis:
+    image: redis:7-alpine
+    container_name: volunteer_app_redis_dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - volunteer_network_dev
+
+  # Aplicação Node.js para desenvolvimento
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: volunteer_app_backend_dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/volunteer_app_dev?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-key
+      REFRESH_TOKEN_SECRET: dev-refresh-token-secret
+      FRONTEND_URL: http://localhost:3001
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    ports:
+      - "3000:3000"
+    networks:
+      - volunteer_network_dev
+    depends_on:
+      - postgres
+      - redis
+    command: >
+      sh -c "
+        echo 'Aguardando banco de dados...' &&
+        npx wait-on tcp:postgres:5432 &&
+        echo 'Executando migrações...' &&
+        npx prisma migrate dev --name init &&
+        echo 'Executando seed...' &&
+        npm run db:seed &&
+        echo 'Iniciando servidor de desenvolvimento...' &&
+        npm run dev
+      "
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+
+networks:
+  volunteer_network_dev:
+    driver: bridge

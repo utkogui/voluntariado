@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volunteer App - Demonstração</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .api-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .api-section h3 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .endpoint {
+            background: #2c3e50;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .get { background: #27ae60; }
+        .post { background: #3498db; }
+        .put { background: #f39c12; }
+        .delete { background: #e74c3c; }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .working { background: #27ae60; color: white; }
+        .demo { background: #f39c12; color: white; }
+        .test-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #2980b9;
+        }
+        .response {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .feature-card h4 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .progress {
+            background: #ecf0f1;
+            border-radius: 10px;
+            height: 20px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            height: 100%;
+            border-radius: 10px;
+            width: 80%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Volunteer App - Demonstração</h1>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>📊 Status do Sistema</h4>
+                <div class="progress">
+                    <div class="progress-bar">80% Completo</div>
+                </div>
+                <p><strong>16/20 tarefas concluídas</strong></p>
+                <p>✅ Infraestrutura Base (10/10)</p>
+                <p>✅ Sistema de Cadastro (6/10)</p>
+            </div>
+            
+            <div class="feature-card">
+                <h4>🔧 Funcionalidades Implementadas</h4>
+                <ul>
+                    <li>✅ Autenticação JWT</li>
+                    <li>✅ Cadastro por tipo de usuário</li>
+                    <li>✅ Validação de documentos</li>
+                    <li>✅ Verificação de antecedentes</li>
+                    <li>✅ Perfis de usuário</li>
+                    <li>✅ Upload de arquivos</li>
+                    <li>✅ Sistema de segurança</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="api-section">
+            <h3>🏥 Health Check</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/health
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testHealth()">Testar Health Check</button>
+            <div id="health-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>👤 Cadastro de Voluntário</h3>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/auth/register/volunteer
+                <span class="status demo">DEMO (sem banco)</span>
+            </div>
+            <button class="test-button" onclick="testVolunteerRegister()">Testar Cadastro</button>
+            <div id="volunteer-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🏢 Cadastro de Instituição</h3>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/auth/register/institution
+                <span class="status demo">DEMO (sem banco)</span>
+            </div>
+            <button class="test-button" onclick="testInstitutionRegister()">Testar Cadastro</button>
+            <div id="institution-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📄 Validação de Documentos</h3>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/document-validation/validate-cnpj
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testCNPJValidation()">Testar Validação CNPJ</button>
+            <div id="cnpj-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🔍 Verificação de Antecedentes</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/background-check/types
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testBackgroundCheckTypes()">Ver Tipos</button>
+            <div id="background-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📁 Documentos Oficiais</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/official-documents/types
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testDocumentTypes()">Ver Tipos</button>
+            <div id="documents-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📊 Métricas do Sistema</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/metrics
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testMetrics()">Ver Métricas</button>
+            <div id="metrics-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🏷️ Sistema de Categorias</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/categories
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testCategories()">Ver Categorias</button>
+            <div id="categories-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🔍 Busca de Categorias</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/categories/search?q=educação
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testCategorySearch()">Buscar Categorias</button>
+            <div id="category-search-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📈 Estatísticas de Categorias</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/categories/stats
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testCategoryStats()">Ver Estatísticas</button>
+            <div id="category-stats-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🎯 Sistema de Habilidades</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/skills
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testSkills()">Ver Habilidades</button>
+            <div id="skills-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🏷️ Categorias de Habilidades</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/skills/categories
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testSkillCategories()">Ver Categorias</button>
+            <div id="skill-categories-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📊 Níveis de Habilidades</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/skills/levels
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testSkillLevels()">Ver Níveis</button>
+            <div id="skill-levels-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🔍 Busca de Habilidades</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/skills/search?q=javascript
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testSkillSearch()">Buscar Habilidades</button>
+            <div id="skill-search-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📈 Estatísticas de Habilidades</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/skills/stats
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testSkillStats()">Ver Estatísticas</button>
+            <div id="skill-stats-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🌍 Sistema de Localização</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/location/states
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testLocationStates()">Ver Estados</button>
+            <div id="location-states-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🏙️ Cidades por Estado</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/location/cities/state/SP
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testLocationCities()">Ver Cidades SP</button>
+            <div id="location-cities-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🔍 Busca de Cidades</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/location/cities/search?q=rio
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testLocationSearch()">Buscar Cidades</button>
+            <div id="location-search-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📍 Cidades Próximas</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/location/cities/nearby?lat=-23.5505&lng=-46.6333&radius=50
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testLocationNearby()">Cidades Próximas</button>
+            <div id="location-nearby-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📮 Validação de CEP</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/location/cep/01234567
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testLocationCEP()">Validar CEP</button>
+            <div id="location-cep-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📏 Cálculo de Distância</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/location/distance?lat1=-23.5505&lng1=-46.6333&lat2=-22.9068&lng2=-43.1729
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testLocationDistance()">Calcular Distância</button>
+            <div id="location-distance-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📊 Estatísticas de Localização</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/location/stats
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testLocationStats()">Ver Estatísticas</button>
+            <div id="location-stats-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>📧 Sistema de Email</h3>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/email/send-verification
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testEmailVerification()">Enviar Verificação</button>
+            <div id="email-verification-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🔐 Redefinir Senha</h3>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/email/request-password-reset
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testEmailPasswordReset()">Solicitar Redefinição</button>
+            <div id="email-password-reset-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>✅ Verificar Email</h3>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/email/verify/demo-token-123
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testEmailVerify()">Verificar Email</button>
+            <div id="email-verify-response" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="api-section">
+            <h3>🧪 Teste de Email</h3>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/email/test
+                <span class="status working">FUNCIONANDO</span>
+            </div>
+            <button class="test-button" onclick="testEmailTest()">Testar Email</button>
+            <div id="email-test-response" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(API_BASE + url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                const data = await response.json();
+                return { status: response.status, data };
+            } catch (error) {
+                return { status: 0, data: { error: error.message } };
+            }
+        }
+
+        function showResponse(elementId, response) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.textContent = JSON.stringify(response, null, 2);
+        }
+
+        async function testHealth() {
+            const response = await makeRequest('/health');
+            showResponse('health-response', response);
+        }
+
+        async function testVolunteerRegister() {
+            const volunteerData = {
+                email: "joao@exemplo.com",
+                password: "123456",
+                firstName: "João",
+                lastName: "Silva",
+                phone: "(11) 99999-9999",
+                city: "São Paulo",
+                state: "SP",
+                skills: ["JavaScript", "React", "Node.js"],
+                volunteerTypes: ["PRESENTIAL", "ONLINE"]
+            };
+            
+            const response = await makeRequest('/auth/register/volunteer', {
+                method: 'POST',
+                body: JSON.stringify(volunteerData)
+            });
+            showResponse('volunteer-response', response);
+        }
+
+        async function testInstitutionRegister() {
+            const institutionData = {
+                email: "ong@exemplo.com",
+                password: "123456",
+                name: "ONG Exemplo",
+                description: "Organização sem fins lucrativos",
+                address: "Rua das Flores, 123",
+                city: "São Paulo",
+                state: "SP",
+                zipCode: "01234-567",
+                cnpj: "12.345.678/0001-90",
+                phone: "(11) 3333-4444",
+                website: "https://ongexemplo.org"
+            };
+            
+            const response = await makeRequest('/auth/register/institution', {
+                method: 'POST',
+                body: JSON.stringify(institutionData)
+            });
+            showResponse('institution-response', response);
+        }
+
+        async function testCNPJValidation() {
+            const response = await makeRequest('/document-validation/validate-cnpj', {
+                method: 'POST',
+                body: JSON.stringify({ cnpj: "11.222.333/0001-81" })
+            });
+            showResponse('cnpj-response', response);
+        }
+
+        async function testBackgroundCheckTypes() {
+            const response = await makeRequest('/background-check/types');
+            showResponse('background-response', response);
+        }
+
+        async function testDocumentTypes() {
+            const response = await makeRequest('/official-documents/types');
+            showResponse('documents-response', response);
+        }
+
+        async function testMetrics() {
+            const response = await makeRequest('/metrics');
+            showResponse('metrics-response', response);
+        }
+
+        async function testCategories() {
+            const response = await makeRequest('/categories');
+            showResponse('categories-response', response);
+        }
+
+        async function testCategorySearch() {
+            const response = await makeRequest('/categories/search?q=educação');
+            showResponse('category-search-response', response);
+        }
+
+        async function testCategoryStats() {
+            const response = await makeRequest('/categories/stats');
+            showResponse('category-stats-response', response);
+        }
+
+        async function testSkills() {
+            const response = await makeRequest('/skills');
+            showResponse('skills-response', response);
+        }
+
+        async function testSkillCategories() {
+            const response = await makeRequest('/skills/categories');
+            showResponse('skill-categories-response', response);
+        }
+
+        async function testSkillLevels() {
+            const response = await makeRequest('/skills/levels');
+            showResponse('skill-levels-response', response);
+        }
+
+        async function testSkillSearch() {
+            const response = await makeRequest('/skills/search?q=javascript');
+            showResponse('skill-search-response', response);
+        }
+
+        async function testSkillStats() {
+            const response = await makeRequest('/skills/stats');
+            showResponse('skill-stats-response', response);
+        }
+
+        async function testLocationStates() {
+            const response = await makeRequest('/location/states');
+            showResponse('location-states-response', response);
+        }
+
+        async function testLocationCities() {
+            const response = await makeRequest('/location/cities/state/SP');
+            showResponse('location-cities-response', response);
+        }
+
+        async function testLocationSearch() {
+            const response = await makeRequest('/location/cities/search?q=rio');
+            showResponse('location-search-response', response);
+        }
+
+        async function testLocationNearby() {
+            const response = await makeRequest('/location/cities/nearby?lat=-23.5505&lng=-46.6333&radius=50');
+            showResponse('location-nearby-response', response);
+        }
+
+        async function testLocationCEP() {
+            const response = await makeRequest('/location/cep/01234567');
+            showResponse('location-cep-response', response);
+        }
+
+        async function testLocationDistance() {
+            const response = await makeRequest('/location/distance?lat1=-23.5505&lng1=-46.6333&lat2=-22.9068&lng2=-43.1729');
+            showResponse('location-distance-response', response);
+        }
+
+        async function testLocationStats() {
+            const response = await makeRequest('/location/stats');
+            showResponse('location-stats-response', response);
+        }
+
+        async function testEmailVerification() {
+            const response = await makeRequest('/email/send-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: 'teste@exemplo.com', userType: 'voluntário' })
+            });
+            showResponse('email-verification-response', response);
+        }
+
+        async function testEmailPasswordReset() {
+            const response = await makeRequest('/email/request-password-reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: 'teste@exemplo.com' })
+            });
+            showResponse('email-password-reset-response', response);
+        }
+
+        async function testEmailVerify() {
+            const response = await makeRequest('/email/verify/demo-token-123');
+            showResponse('email-verify-response', response);
+        }
+
+        async function testEmailTest() {
+            const response = await makeRequest('/email/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: 'teste@exemplo.com', type: 'verification' })
+            });
+            showResponse('email-test-response', response);
+        }
+
+        // Testar health check automaticamente
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html>

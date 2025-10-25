@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificação de Email</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #3B82F6;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #10B981;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+        }
+        .warning {
+            background-color: #FEF3C7;
+            border: 1px solid #F59E0B;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Verificação de Email</h1>
+    </div>
+    
+    <div class="content">
+        <h2>Olá, {{name}}!</h2>
+        
+        <p>Para completar seu cadastro e ativar sua conta, é necessário verificar seu endereço de email.</p>
+        
+        <div class="warning">
+            <strong>Importante:</strong> Este link de verificação expira em 24 horas por motivos de segurança.
+        </div>
+        
+        <p>Clique no botão abaixo para verificar seu email:</p>
+        
+        <div style="text-align: center;">
+            <a href="{{verificationLink}}" class="button">Verificar Email</a>
+        </div>
+        
+        <p>Se você não conseguir clicar no botão, copie e cole o link abaixo no seu navegador:</p>
+        <p style="word-break: break-all; background-color: #e5e7eb; padding: 10px; border-radius: 4px;">
+            {{verificationLink}}
+        </p>
+        
+        <p>Após a verificação, você poderá:</p>
+        <ul>
+            <li>Acessar todas as funcionalidades da plataforma</li>
+            <li>Receber notificações importantes</li>
+            <li>Participar de oportunidades de voluntariado</li>
+            <li>Conectar-se com outras pessoas da comunidade</li>
+        </ul>
+        
+        <p>Se você não se cadastrou em nossa plataforma, pode ignorar este email.</p>
+        
+        <p>Obrigado por escolher nossa plataforma!</p>
+        
+        <p>Equipe da Plataforma de Voluntariado</p>
+    </div>
+    
+    <div class="footer">
+        <p>Este link de verificação é válido por 24 horas</p>
+        <p>Se você não solicitou este email, entre em contato conosco</p>
+    </div>
+</body>
+</html>

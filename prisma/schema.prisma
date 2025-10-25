@@ -1,0 +1,1887 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo base para todos os usuários
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  userType    UserType
+  status      UserStatus @default(PENDING)
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lastLoginAt DateTime?
+
+  // Relacionamentos específicos por tipo
+  volunteer   Volunteer?
+  institution Institution?
+  company     Company?
+  university  University?
+
+  // Relacionamentos gerais
+  sentMessages     Message[] @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageReceiver")
+  evaluations      Evaluation[] @relation("EvaluationEvaluator")
+  receivedEvaluations Evaluation[] @relation("EvaluationEvaluated")
+  notifications    Notification[]
+  documents        Document[]
+  donations        Donation[] @relation("DonationDonor")
+  collectedDonations Donation[] @relation("DonationCollector")
+  
+  // Relacionamentos de chat
+  conversationParticipants ConversationParticipant[]
+  sentChatMessages        Message[]
+  
+  // Relacionamentos de notificações push
+  deviceTokens            DeviceToken[]
+  
+  // Relacionamentos de atividades
+  createdActivities       Activity[] @relation("ActivityCreator")
+  activityParticipants    ActivityParticipant[]
+  activityConfirmations   ActivityConfirmation[]
+  activityEvaluations     ActivityEvaluation[] @relation("ActivityEvaluator")
+  receivedActivityEvaluations ActivityEvaluation[] @relation("ActivityEvaluated")
+  
+  // Cancelamento e reagendamento
+  activityCancellations ActivityCancellation[] @relation("ActivityCancelledBy")
+  activityReschedules ActivityReschedule[] @relation("ActivityRescheduledBy")
+  approvedReschedules ActivityReschedule[] @relation("ActivityRescheduleApprovedBy")
+  rejectedReschedules ActivityReschedule[] @relation("ActivityRescheduleRejectedBy")
+  
+  // Confirmação de presença e check-in/check-out
+  attendanceRecords AttendanceRecord[]
+  attendanceConfirmations AttendanceConfirmation[]
+  generatedAttendanceReports AttendanceReport[]
+  
+  // Mensagens em massa
+  createdMessageGroups MessageGroup[] @relation("MessageGroupCreator")
+  messageGroupMembers MessageGroupMember[]
+  addedMessageGroupMembers MessageGroupMember[] @relation("MessageGroupMemberAddedBy")
+  createdMassMessageCampaigns MassMessageCampaign[] @relation("MassMessageCampaignCreator")
+  massMessages MassMessage[]
+  createdMessageTemplates MessageTemplate[] @relation("MessageTemplateCreator")
+
+  // Sistema de avaliações e gestão
+  evaluationsGiven Evaluation[] @relation("EvaluationEvaluator")
+  evaluationsReceived Evaluation[] @relation("EvaluationEvaluated")
+  evaluationReports EvaluationReport[] @relation("EvaluationReportReporter")
+  evaluationReportsReviewed EvaluationReport[] @relation("EvaluationReportReviewer")
+  evaluationsModerated Evaluation[] @relation("EvaluationModerator")
+  userApprovalsGiven UserApproval[] @relation("UserApprovalApprover")
+  userApprovalsReceived UserApproval[] @relation("UserApprovalApproved")
+  participationHistory ParticipationHistory[]
+  participationHistoryInstitution ParticipationHistory[] @relation("ParticipationHistoryInstitution")
+  userBlocksGiven UserBlock[] @relation("UserBlockBlocker")
+  userBlocksReceived UserBlock[] @relation("UserBlockBlocked")
+  impactReports ImpactReport[] @relation("ImpactReportCompany")
+  impactReportsGenerated ImpactReport[] @relation("ImpactReportGenerator")
+  engagementTrackingUniversity EngagementTracking[] @relation("EngagementTrackingUniversity")
+  engagementTrackingStudent EngagementTracking[] @relation("EngagementTrackingStudent")
+  contentModerationReports ContentModeration[] @relation("ContentModerationReporter")
+  contentModerationReviewed ContentModeration[] @relation("ContentModerationModerator")
+
+  @@map("users")
+}
+
+// Modelo específico para voluntários
+model Volunteer {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  firstName       String
+  lastName        String
+  phone           String?
+  dateOfBirth     DateTime?
+  gender          String?
+  bio             String?
+  profileImage    String?
+  
+  // Localização
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String   @default("Brasil")
+  latitude        Float?
+  longitude       Float?
+  
+  // Habilidades e disponibilidade
+  skills          String[] // Array de habilidades
+  skillLevels     Json?    // Níveis de habilidade
+  availability    Json?    // Horários de disponibilidade
+  volunteerTypes  VolunteerType[]
+  
+  // Verificação
+  hasBackgroundCheck Boolean @default(false)
+  backgroundCheckDate DateTime?
+  backgroundCheckStatus String?
+  
+  // Relacionamentos
+  applications    Application[]
+  evaluations     Evaluation[] @relation("VolunteerEvaluations")
+  backgroundChecks BackgroundCheck[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("volunteers")
+}
+
+// Modelo específico para instituições
+model Institution {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String
+  description     String?
+  website         String?
+  phone           String?
+  email           String?
+  logo            String?
+  
+  // Documentação oficial
+  cnpj            String?  @unique
+  registrationNumber String?
+  documentType    String?
+  documentStatus  String   @default("PENDING")
+  verifiedAt      DateTime?
+  
+  // Localização
+  address         String
+  city            String
+  state           String
+  zipCode         String
+  country         String   @default("Brasil")
+  latitude        Float?
+  longitude       Float?
+  
+  // Categorias de atuação
+  categories      Category[]
+  
+  // Relacionamentos
+  opportunities   Opportunity[]
+  evaluations     Evaluation[] @relation("InstitutionEvaluations")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("institutions")
+}
+
+// Modelo específico para empresas
+model Company {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String
+  description     String?
+  website         String?
+  phone           String?
+  email           String?
+  logo            String?
+  
+  // Documentação
+  cnpj            String?  @unique
+  documentStatus  String   @default("PENDING")
+  verifiedAt      DateTime?
+  
+  // Localização
+  address         String
+  city            String
+  state           String
+  zipCode         String
+  country         String   @default("Brasil")
+  
+  // Plano e pagamento
+  planType        String   @default("FREE")
+  isActive        Boolean  @default(true)
+  subscriptionId  String?
+  
+  // Relacionamentos
+  opportunities   Opportunity[]
+  reports         Report[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("companies")
+}
+
+// Modelo específico para universidades
+model University {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String
+  description     String?
+  website         String?
+  phone           String?
+  email           String?
+  logo            String?
+  
+  // Documentação
+  cnpj            String?  @unique
+  documentStatus  String   @default("PENDING")
+  verifiedAt      DateTime?
+  
+  // Localização
+  address         String
+  city            String
+  state           String
+  zipCode         String
+  country         String   @default("Brasil")
+  
+  // Plano e pagamento
+  planType        String   @default("FREE")
+  isActive        Boolean  @default(true)
+  subscriptionId  String?
+  
+  // Relacionamentos
+  opportunities   Opportunity[]
+  reports         Report[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("universities")
+}
+
+// Modelo para categorias de atuação
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  color       String?
+  isActive    Boolean  @default(true)
+  
+  // Relacionamentos
+  institutions Institution[]
+  opportunities Opportunity[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("categories")
+}
+
+// Modelo para oportunidades de voluntariado
+model Opportunity {
+  id              String   @id @default(cuid())
+  title           String
+  description     String
+  requirements    String?
+  benefits        String?
+  
+  // Informações da oportunidade
+  volunteerType   VolunteerType
+  status          OpportunityStatus @default(DRAFT)
+  maxVolunteers   Int?
+  currentVolunteers Int @default(0)
+  
+  // Localização
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?
+  latitude        Float?
+  longitude       Float?
+  isRemote        Boolean @default(false)
+  
+  // Datas
+  startDate       DateTime?
+  endDate         DateTime?
+  applicationDeadline DateTime?
+  
+  // Categorias e habilidades
+  categories      Category[]
+  requiredSkills  String[]
+  skillLevels     Json?
+  
+  // Doações
+  needsDonations  Boolean @default(false)
+  donationItems   Json?
+  
+  // Relacionamentos
+  createdById     String
+  createdByType   UserType
+  institution     Institution? @relation(fields: [createdById], references: [id], onDelete: Cascade, map: "opportunities_institution_fkey")
+  company         Company? @relation(fields: [createdById], references: [id], onDelete: Cascade, map: "opportunities_company_fkey")
+  university      University? @relation(fields: [createdById], references: [id], onDelete: Cascade, map: "opportunities_university_fkey")
+  
+  applications    Application[]
+  evaluations     Evaluation[] @relation("OpportunityEvaluations")
+  opportunityRequirements OpportunityRequirement[]
+  donations       Donation[]
+  conversations   Conversation[]
+  activities      Activity[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("opportunities")
+}
+
+// Modelo para candidaturas
+model Application {
+  id              String   @id @default(cuid())
+  status          ApplicationStatus @default(PENDING)
+  message         String?
+  
+  // Relacionamentos
+  volunteerId     String
+  volunteer       Volunteer @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  
+  // Datas
+  appliedAt       DateTime @default(now())
+  reviewedAt      DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([volunteerId, opportunityId])
+  @@map("applications")
+}
+
+// Modelo para requisitos específicos de oportunidades
+model OpportunityRequirement {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  requirementType RequirementType
+  isRequired      Boolean  @default(true)
+  priority        RequirementPriority @default(MEDIUM)
+  
+  // Validação específica
+  validationRules Json?    // Regras de validação personalizadas
+  minValue        Float?   // Para requisitos numéricos
+  maxValue        Float?   // Para requisitos numéricos
+  allowedValues   String[] // Para requisitos de seleção
+  
+  // Relacionamentos
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("opportunity_requirements")
+}
+
+// Modelo para doações de materiais/recursos
+model Donation {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  category        DonationCategory
+  status          DonationStatus @default(PENDING)
+  priority        DonationPriority @default(MEDIUM)
+  
+  // Informações da doação
+  quantity        Int
+  unit            String // unidade, kg, litros, etc.
+  condition       DonationCondition @default(NEW)
+  estimatedValue  Float?
+  images          String[] // URLs das imagens
+  
+  // Localização
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?
+  latitude        Float?
+  longitude       Float?
+  isPickup        Boolean @default(false)
+  
+  // Datas
+  availableFrom   DateTime?
+  availableUntil  DateTime?
+  collectedAt     DateTime?
+  
+  // Relacionamentos
+  donorId         String
+  donor           User @relation("DonationDonor", fields: [donorId], references: [id], onDelete: Cascade)
+  
+  opportunityId   String?
+  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  
+  collectedById   String?
+  collectedBy     User? @relation("DonationCollector", fields: [collectedById], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("donations")
+}
+
+// Modelo para avaliações
+model Evaluation {
+  id              String   @id @default(cuid())
+  rating          Int      // 1-5 estrelas
+  comment         String?
+  
+  // Relacionamentos
+  evaluatorId     String
+  evaluator       User @relation("EvaluationEvaluator", fields: [evaluatorId], references: [id], onDelete: Cascade)
+  
+  evaluatedId     String
+  evaluated       User @relation("EvaluationEvaluated", fields: [evaluatedId], references: [id], onDelete: Cascade)
+  
+  opportunityId   String?
+  opportunity     Opportunity? @relation("OpportunityEvaluations", fields: [opportunityId], references: [id], onDelete: Cascade)
+  
+  institutionId   String?
+  institution     Institution? @relation("InstitutionEvaluations", fields: [institutionId], references: [id], onDelete: Cascade)
+  
+  volunteerId     String?
+  volunteer       Volunteer? @relation("VolunteerEvaluations", fields: [volunteerId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("evaluations")
+}
+
+// Modelo para mensagens
+model Message {
+  id              String   @id @default(cuid())
+  content         String
+  isRead          Boolean  @default(false)
+  
+  // Relacionamentos
+  senderId        String
+  sender          User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  receiverId      String
+  receiver        User @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("messages")
+}
+
+// Modelo para notificações
+model Notification {
+  id              String   @id @default(cuid())
+  title           String
+  message         String
+  type            NotificationType
+  isRead          Boolean  @default(false)
+  data            Json?
+  
+  // Relacionamentos
+  userId          String
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("notifications")
+}
+
+// Modelo para relatórios
+model Report {
+  id              String   @id @default(cuid())
+  title           String
+  content         String
+  type            String
+  data            Json?
+  
+  // Relacionamentos
+  companyId       String?
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  universityId    String?
+  university      University? @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("reports")
+}
+
+// Modelo para documentos
+model Document {
+  id              String   @id @default(cuid())
+  fileName        String
+  filePath        String
+  fileSize        Int
+  mimeType        String
+  documentType    String
+  status          DocumentStatus @default(PENDING)
+  rejectionReason String?
+  reviewedAt      DateTime?
+  
+  // Relacionamentos
+  userId          String
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("documents")
+}
+
+// Modelo para verificação de antecedentes
+model BackgroundCheck {
+  id              String   @id @default(cuid())
+  volunteerId     String
+  volunteer       Volunteer @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  
+  checkType       BackgroundCheckType
+  status          BackgroundCheckStatus @default(PENDING)
+  notes           String?
+  documents       String[] // Array de IDs de documentos
+  
+  // Datas
+  requestedAt     DateTime @default(now())
+  reviewedAt      DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  expiresAt       DateTime?
+  
+  // Revisão
+  reviewedBy      String?
+  rejectionReason String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("background_checks")
+}
+
+// Enums
+enum UserType {
+  VOLUNTEER
+  INSTITUTION
+  COMPANY
+  UNIVERSITY
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
+  BLOCKED
+}
+
+enum OpportunityStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum VolunteerType {
+  PRESENTIAL
+  ONLINE
+  HYBRID
+}
+
+enum NotificationType {
+  NEW_OPPORTUNITY
+  APPLICATION_UPDATE
+  MESSAGE
+  REMINDER
+  EVALUATION
+  SYSTEM
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BackgroundCheckType {
+  CRIMINAL
+  SEXUAL_OFFENDER
+  FINANCIAL
+  PROFESSIONAL
+  REFERENCE
+}
+
+enum BackgroundCheckStatus {
+  PENDING
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum RequirementType {
+  AGE
+  EXPERIENCE
+  EDUCATION
+  SKILL
+  LANGUAGE
+  AVAILABILITY
+  LOCATION
+  DOCUMENT
+  BACKGROUND_CHECK
+  CUSTOM
+}
+
+enum RequirementPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DonationCategory {
+  FOOD
+  CLOTHING
+  BOOKS
+  TOYS
+  MEDICINE
+  EQUIPMENT
+  FURNITURE
+  ELECTRONICS
+  HYGIENE
+  SCHOOL_SUPPLIES
+  OTHER
+}
+
+enum DonationStatus {
+  PENDING
+  AVAILABLE
+  RESERVED
+  COLLECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum DonationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum DonationCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+  POOR
+}
+
+// Modelos para sistema de chat
+model Conversation {
+  id          String   @id @default(cuid())
+  title       String?
+  type        ConversationType @default(DIRECT)
+  status      ConversationStatus @default(ACTIVE)
+  
+  // Relacionamentos
+  participants ConversationParticipant[]
+  messages     Message[]
+  opportunity  Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  opportunityId String?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  role           ParticipantRole @default(MEMBER)
+  joinedAt      DateTime @default(now())
+  lastReadAt     DateTime?
+  
+  // Relacionamentos
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  content        String
+  type           MessageType @default(TEXT)
+  status         MessageStatus @default(SENT)
+  
+  // Relacionamentos
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  // Mensagem pai (para replies)
+  parentId       String?
+  parent         Message? @relation("MessageReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies        Message[] @relation("MessageReplies")
+  
+  // Anexos
+  attachments    MessageAttachment[]
+  
+  // Metadados
+  metadata       Json?    // Dados adicionais (localização, etc.)
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id        String   @id @default(cuid())
+  messageId String
+  fileName  String
+  fileUrl   String
+  fileType  String
+  fileSize  Int
+  
+  // Relacionamentos
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@map("message_attachments")
+}
+
+// Enums para chat
+enum ConversationType {
+  DIRECT
+  GROUP
+  OPPORTUNITY
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum ParticipantRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+  OPPORTUNITY_SHARE
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// Modelo para tokens de dispositivos para notificações push
+model DeviceToken {
+  id          String   @id @default(cuid())
+  userId      String
+  deviceToken String
+  platform    String   // ios, android, web
+  deviceInfo  Json?    // Informações do dispositivo
+  isActive    Boolean  @default(true)
+  lastUsedAt  DateTime @default(now())
+  removedAt   DateTime?
+  
+  // Relacionamentos
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, deviceToken])
+  @@map("device_tokens")
+}
+
+// Modelo para templates de notificação
+model NotificationTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // Tipo de notificação
+  title       String
+  body        String
+  channelId   String?
+  sound       String?
+  icon        String?
+  color       String?
+  data        Json?    // Dados adicionais do template
+  isActive    Boolean  @default(true)
+  createdBy   String?  // null para templates globais
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([type, createdBy])
+  @@map("notification_templates")
+}
+
+// Modelo para notificações agendadas
+model ScheduledNotification {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  title       String
+  body        String
+  scheduledFor DateTime
+  data        Json?    // Dados adicionais
+  templateId  String?
+  priority    String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  status      String   @default("SCHEDULED") // SCHEDULED, PROCESSING, SENT, FAILED, CANCELLED
+  retryCount  Int      @default(0)
+  maxRetries  Int      @default(3)
+  lastError   String?
+  sentAt      DateTime?
+  failedAt    DateTime?
+  cancelledAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("scheduled_notifications")
+}
+
+// Modelos para sistema de agendamento de atividades
+model Activity {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  type            ActivityType
+  status          ActivityStatus @default(SCHEDULED)
+  
+  // Informações da atividade
+  maxParticipants Int?
+  currentParticipants Int @default(0)
+  isRecurring     Boolean @default(false)
+  recurrenceRule  String? // Regra de recorrência (RRULE)
+  
+  // Localização
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?
+  latitude        Float?
+  longitude       Float?
+  isOnline        Boolean @default(false)
+  meetingUrl      String?
+  
+  // Datas e horários
+  startDate       DateTime
+  endDate         DateTime
+  timezone        String @default("America/Sao_Paulo")
+  
+  // Relacionamentos
+  opportunityId   String?
+  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  createdById     String
+  createdBy       User @relation("ActivityCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  // Participantes e confirmações
+  participants    ActivityParticipant[]
+  confirmations   ActivityConfirmation[]
+  
+  // Materiais e recursos
+  materials       ActivityMaterial[]
+  requirements    ActivityRequirement[]
+  
+  // Avaliações
+  evaluations     ActivityEvaluation[]
+  
+  // Cancelamento e reagendamento
+  cancellations   ActivityCancellation[]
+  reschedules     ActivityReschedule[]
+  changeNotifications ActivityChangeNotification[]
+  backups         ActivityBackup[]
+  
+  // Confirmação de presença e check-in/check-out
+  attendanceRecords AttendanceRecord[]
+  attendanceConfirmations AttendanceConfirmation[]
+  attendanceReports AttendanceReport[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("activities")
+}
+
+model ActivityParticipant {
+  id          String   @id @default(cuid())
+  activityId  String
+  userId      String
+  role        ParticipantRole @default(PARTICIPANT)
+  status      ParticipantStatus @default(REGISTERED)
+  registeredAt DateTime @default(now())
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user        User @relation("ActivityParticipant", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([activityId, userId])
+  @@map("activity_participants")
+}
+
+model ActivityConfirmation {
+  id          String   @id @default(cuid())
+  activityId  String
+  userId      String
+  status      ConfirmationStatus @default(PENDING)
+  confirmedAt DateTime?
+  notes       String?
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user        User @relation("ActivityConfirmation", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([activityId, userId])
+  @@map("activity_confirmations")
+}
+
+model ActivityMaterial {
+  id          String   @id @default(cuid())
+  activityId  String
+  name        String
+  description String?
+  quantity    Int
+  unit        String
+  isRequired  Boolean @default(true)
+  providedBy  String? // Quem fornece o material
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("activity_materials")
+}
+
+model ActivityRequirement {
+  id          String   @id @default(cuid())
+  activityId  String
+  title       String
+  description String?
+  requirementType RequirementType
+  isRequired  Boolean @default(true)
+  priority    RequirementPriority @default(MEDIUM)
+  
+  // Validação específica
+  validationRules Json?    // Regras de validação personalizadas
+  minValue        Float?   // Para requisitos numéricos
+  maxValue        Float?   // Para requisitos numéricos
+  allowedValues   String[] // Para requisitos de seleção
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("activity_requirements")
+}
+
+model ActivityEvaluation {
+  id          String   @id @default(cuid())
+  activityId  String
+  evaluatorId String
+  evaluatedId String
+  rating      Int      // 1-5 estrelas
+  comment     String?
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  evaluator   User @relation("ActivityEvaluator", fields: [evaluatorId], references: [id], onDelete: Cascade)
+  evaluated   User @relation("ActivityEvaluated", fields: [evaluatedId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([activityId, evaluatorId, evaluatedId])
+  @@map("activity_evaluations")
+}
+
+// Enums para atividades
+enum ActivityType {
+  VOLUNTEER_WORK
+  TRAINING
+  MEETING
+  EVENT
+  WORKSHOP
+  ORIENTATION
+  CLEANUP
+  FUNDRAISING
+  AWARENESS
+  OTHER
+}
+
+enum ActivityStatus {
+  DRAFT
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+enum ParticipantRole {
+  ORGANIZER
+  COORDINATOR
+  FACILITATOR
+  PARTICIPANT
+  OBSERVER
+}
+
+enum ParticipantStatus {
+  REGISTERED
+  CONFIRMED
+  CANCELLED
+  NO_SHOW
+  COMPLETED
+}
+
+enum ConfirmationStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  MAYBE
+}
+
+// Modelos para cancelamento e reagendamento
+model ActivityCancellation {
+  id          String   @id @default(cuid())
+  activityId  String
+  cancelledBy String
+  reason      String
+  reasonCode  CancellationReason
+  details     String?
+  refundRequired Boolean @default(false)
+  refundAmount   Float?
+  refundStatus   RefundStatus @default(PENDING)
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  cancelledByUser User @relation("ActivityCancelledBy", fields: [cancelledBy], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("activity_cancellations")
+}
+
+model ActivityReschedule {
+  id          String   @id @default(cuid())
+  activityId  String
+  rescheduledBy String
+  reason      String
+  reasonCode  RescheduleReason
+  details     String?
+  
+  // Datas originais
+  originalStartDate DateTime
+  originalEndDate   DateTime
+  
+  // Novas datas
+  newStartDate      DateTime
+  newEndDate        DateTime
+  
+  // Status do reagendamento
+  status        RescheduleStatus @default(PENDING)
+  approvedBy    String?
+  approvedAt    DateTime?
+  rejectedBy    String?
+  rejectedAt    DateTime?
+  rejectionReason String?
+  
+  // Relacionamentos
+  activity      Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  rescheduledByUser User @relation("ActivityRescheduledBy", fields: [rescheduledBy], references: [id], onDelete: Cascade)
+  approvedByUser User? @relation("ActivityRescheduleApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
+  rejectedByUser User? @relation("ActivityRescheduleRejectedBy", fields: [rejectedBy], references: [id], onDelete: SetNull)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("activity_reschedules")
+}
+
+model ActivityChangeNotification {
+  id          String   @id @default(cuid())
+  activityId  String
+  changeType  ChangeType
+  changeData  Json     // Dados da mudança
+  sentTo      String[] // IDs dos usuários que receberam a notificação
+  sentAt      DateTime @default(now())
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("activity_change_notifications")
+}
+
+model ActivityBackup {
+  id          String   @id @default(cuid())
+  activityId  String
+  backupType  BackupType
+  backupData  Json     // Dados de backup
+  reason      String?
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("activity_backups")
+}
+
+// Enums para cancelamento e reagendamento
+enum CancellationReason {
+  WEATHER
+  EMERGENCY
+  LOW_PARTICIPATION
+  VENUE_UNAVAILABLE
+  ORGANIZER_UNAVAILABLE
+  TECHNICAL_ISSUES
+  COVID_RESTRICTIONS
+  OTHER
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RescheduleReason {
+  WEATHER
+  VENUE_UNAVAILABLE
+  ORGANIZER_UNAVAILABLE
+  LOW_PARTICIPATION
+  TECHNICAL_ISSUES
+  COVID_RESTRICTIONS
+  CONFLICTING_EVENT
+  OTHER
+}
+
+enum RescheduleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ChangeType {
+  CANCELLED
+  RESCHEDULED
+  VENUE_CHANGED
+  TIME_CHANGED
+  DESCRIPTION_CHANGED
+  REQUIREMENTS_CHANGED
+  MATERIALS_CHANGED
+}
+
+enum BackupType {
+  BEFORE_CANCELLATION
+  BEFORE_RESCHEDULE
+  BEFORE_MAJOR_CHANGE
+  AUTOMATIC_BACKUP
+}
+
+// Modelos para confirmação de presença e check-in/check-out
+model AttendanceRecord {
+  id          String   @id @default(cuid())
+  activityId  String
+  userId      String
+  checkInTime DateTime?
+  checkOutTime DateTime?
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?
+  location    String? // Para check-in presencial
+  latitude    Float?
+  longitude   Float?
+  deviceInfo  Json?   // Informações do dispositivo usado para check-in
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([activityId, userId])
+  @@map("attendance_records")
+}
+
+model AttendanceConfirmation {
+  id          String   @id @default(cuid())
+  activityId  String
+  userId      String
+  status      ConfirmationStatus @default(PENDING)
+  confirmedAt DateTime?
+  declinedAt  DateTime?
+  notes       String?
+  reminderSent Boolean @default(false)
+  reminderSentAt DateTime?
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([activityId, userId])
+  @@map("attendance_confirmations")
+}
+
+model AttendanceReport {
+  id          String   @id @default(cuid())
+  activityId  String
+  generatedBy String
+  reportType  AttendanceReportType
+  reportData  Json     // Dados do relatório
+  filters     Json?    // Filtros aplicados
+  generatedAt DateTime @default(now())
+  
+  // Relacionamentos
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  generatedByUser User @relation(fields: [generatedBy], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("attendance_reports")
+}
+
+// Enums para confirmação de presença
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EARLY_LEAVE
+  PARTIAL
+  EXCUSED
+  NO_SHOW
+}
+
+enum AttendanceReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ACTIVITY_SUMMARY
+  PARTICIPANT_SUMMARY
+  CUSTOM
+}
+
+// Modelos para mensagens em massa
+model MessageGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        MessageGroupType
+  status      MessageGroupStatus @default(ACTIVE)
+  createdBy   String
+  settings    Json?    // Configurações do grupo
+  
+  // Relacionamentos
+  createdByUser User @relation("MessageGroupCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  members      MessageGroupMember[]
+  campaigns    MassMessageCampaign[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("message_groups")
+}
+
+model MessageGroupMember {
+  id          String   @id @default(cuid())
+  groupId     String
+  userId      String
+  role        MessageGroupRole @default(MEMBER)
+  addedAt     DateTime @default(now())
+  addedBy     String
+  
+  // Relacionamentos
+  group       MessageGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addedByUser User @relation("MessageGroupMemberAddedBy", fields: [addedBy], references: [id], onDelete: Cascade)
+  
+  @@unique([groupId, userId])
+  @@map("message_group_members")
+}
+
+model MassMessageCampaign {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        MassMessageType
+  status      CampaignStatus @default(DRAFT)
+  createdBy   String
+  groupId     String?
+  
+  // Conteúdo da mensagem
+  subject     String?
+  content     String
+  contentType MessageContentType @default(TEXT)
+  templateId  String?
+  
+  // Configurações de envio
+  sendAt      DateTime?
+  timezone    String @default("America/Sao_Paulo")
+  channels    String[] // email, push, sms
+  
+  // Segmentação
+  filters     Json?    // Filtros de segmentação
+  targetUsers String[] // IDs dos usuários alvo
+  
+  // Estatísticas
+  totalSent   Int @default(0)
+  totalDelivered Int @default(0)
+  totalFailed Int @default(0)
+  totalOpened Int @default(0)
+  totalClicked Int @default(0)
+  
+  // Relacionamentos
+  createdByUser User @relation("MassMessageCampaignCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  group       MessageGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  messages   MassMessage[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mass_message_campaigns")
+}
+
+model MassMessage {
+  id          String   @id @default(cuid())
+  campaignId  String
+  userId      String
+  channel     MessageChannel
+  status      MessageStatus @default(PENDING)
+  
+  // Conteúdo
+  subject     String?
+  content     String
+  contentType MessageContentType
+  
+  // Configurações de envio
+  scheduledFor DateTime?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  openedAt    DateTime?
+  clickedAt   DateTime?
+  failedAt    DateTime?
+  
+  // Dados de erro
+  errorMessage String?
+  retryCount   Int @default(0)
+  maxRetries   Int @default(3)
+  
+  // Relacionamentos
+  campaign    MassMessageCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mass_messages")
+}
+
+model MessageTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        MessageTemplateType
+  category    String?
+  
+  // Conteúdo do template
+  subject     String?
+  content     String
+  contentType MessageContentType @default(TEXT)
+  variables   String[] // Variáveis disponíveis no template
+  
+  // Configurações
+  isActive    Boolean @default(true)
+  isPublic    Boolean @default(false)
+  createdBy   String
+  
+  // Relacionamentos
+  createdByUser User @relation("MessageTemplateCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  campaigns   MassMessageCampaign[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("message_templates")
+}
+
+// Enums para mensagens em massa
+enum MessageGroupType {
+  MANUAL
+  DYNAMIC
+  SEGMENTED
+  ACTIVITY_PARTICIPANTS
+  VOLUNTEERS
+  INSTITUTIONS
+}
+
+enum MessageGroupStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum MessageGroupRole {
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum MassMessageType {
+  ANNOUNCEMENT
+  REMINDER
+  NEWSLETTER
+  PROMOTIONAL
+  URGENT
+  CUSTOM
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  PAUSED
+  CANCELLED
+  FAILED
+}
+
+enum MessageContentType {
+  TEXT
+  HTML
+  MARKDOWN
+}
+
+enum MessageChannel {
+  EMAIL
+  PUSH
+  SMS
+  IN_APP
+}
+
+enum MessageStatus {
+  PENDING
+  SENDING
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  FAILED
+  CANCELLED
+}
+
+enum MessageTemplateType {
+  EMAIL
+  PUSH
+  SMS
+  IN_APP
+  UNIVERSAL
+}
+
+// === SISTEMA DE AVALIAÇÕES E GESTÃO ===
+
+model Evaluation {
+  id                String   @id @default(cuid())
+  evaluatorId       String   // Quem está avaliando
+  evaluatedId       String   // Quem está sendo avaliado
+  activityId        String?  // Atividade relacionada (opcional)
+  opportunityId     String?  // Oportunidade relacionada (opcional)
+  type              EvaluationType
+  rating            Int      // Nota de 1 a 5
+  title             String?
+  comment           String?
+  categories        Json     // Categorias de avaliação específicas
+  isAnonymous       Boolean  @default(false)
+  isPublic          Boolean  @default(true)
+  status            EvaluationStatus @default(PENDING)
+  moderatedAt       DateTime?
+  moderatedBy       String?
+  moderationReason  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relacionamentos
+  evaluator         User     @relation("EvaluationEvaluator", fields: [evaluatorId], references: [id])
+  evaluated         User     @relation("EvaluationEvaluated", fields: [evaluatedId], references: [id])
+  activity          Activity? @relation(fields: [activityId], references: [id])
+  opportunity       Opportunity? @relation(fields: [opportunityId], references: [id])
+  moderator         User?    @relation("EvaluationModerator", fields: [moderatedBy], references: [id])
+  reports           EvaluationReport[]
+
+  @@index([evaluatorId])
+  @@index([evaluatedId])
+  @@index([activityId])
+  @@index([opportunityId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model EvaluationReport {
+  id            String   @id @default(cuid())
+  evaluationId  String
+  reporterId    String
+  reason        ReportReason
+  description   String
+  status        ReportStatus @default(PENDING)
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  reviewNotes   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relacionamentos
+  evaluation    Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  reporter      User       @relation("EvaluationReportReporter", fields: [reporterId], references: [id])
+  reviewer      User?      @relation("EvaluationReportReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([evaluationId])
+  @@index([reporterId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model UserApproval {
+  id              String   @id @default(cuid())
+  approverId      String   // Instituição que está aprovando
+  approvedId      String   // Voluntário que está sendo aprovado
+  opportunityId   String?  // Oportunidade específica (opcional)
+  status          ApprovalStatus @default(PENDING)
+  approvedAt      DateTime?
+  expiresAt       DateTime?
+  notes           String?
+  requirements    Json     // Requisitos específicos para aprovação
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  approver        User     @relation("UserApprovalApprover", fields: [approverId], references: [id])
+  approved        User     @relation("UserApprovalApproved", fields: [approvedId], references: [id])
+  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id])
+
+  @@index([approverId])
+  @@index([approvedId])
+  @@index([opportunityId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model ParticipationHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  activityId      String
+  opportunityId   String
+  institutionId   String
+  status          ParticipationStatus
+  startDate       DateTime
+  endDate         DateTime?
+  hoursWorked     Float?
+  tasksCompleted  Json     // Lista de tarefas completadas
+  achievements    Json     // Conquistas e reconhecimentos
+  feedback        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  user            User     @relation(fields: [userId], references: [id])
+  activity        Activity @relation(fields: [activityId], references: [id])
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id])
+  institution     User     @relation("ParticipationHistoryInstitution", fields: [institutionId], references: [id])
+
+  @@index([userId])
+  @@index([activityId])
+  @@index([opportunityId])
+  @@index([institutionId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model UserBlock {
+  id              String   @id @default(cuid())
+  blockedUserId   String
+  blockedBy       String
+  reason          BlockReason
+  description     String
+  duration        Int?     // Duração em dias (null = permanente)
+  expiresAt       DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  blockedUser     User     @relation("UserBlockBlocked", fields: [blockedUserId], references: [id])
+  blocker         User     @relation("UserBlockBlocker", fields: [blockedBy], references: [id])
+
+  @@index([blockedUserId])
+  @@index([blockedBy])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model ImpactReport {
+  id              String   @id @default(cuid())
+  companyId       String
+  period          String   // Período do relatório (ex: "2024-Q1")
+  startDate       DateTime
+  endDate         DateTime
+  totalVolunteers Int
+  totalHours      Float
+  totalActivities Int
+  categories      Json     // Impacto por categoria
+  metrics         Json     // Métricas específicas
+  achievements    Json     // Principais conquistas
+  challenges      Json     // Desafios enfrentados
+  recommendations Json     // Recomendações para o futuro
+  status          ReportStatus @default(DRAFT)
+  generatedAt     DateTime?
+  generatedBy     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  company         User     @relation("ImpactReportCompany", fields: [companyId], references: [id])
+  generator       User?    @relation("ImpactReportGenerator", fields: [generatedBy], references: [id])
+
+  @@index([companyId])
+  @@index([period])
+  @@index([status])
+  @@index([generatedAt])
+}
+
+model EngagementTracking {
+  id              String   @id @default(cuid())
+  universityId    String
+  studentId       String
+  semester        String
+  year            Int
+  totalHours      Float
+  activitiesCount Int
+  categories      Json     // Engajamento por categoria
+  achievements    Json     // Conquistas do estudante
+  skills          Json     // Habilidades desenvolvidas
+  feedback        String?
+  status          EngagementStatus @default(ACTIVE)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  university      User     @relation("EngagementTrackingUniversity", fields: [universityId], references: [id])
+  student         User     @relation("EngagementTrackingStudent", fields: [studentId], references: [id])
+
+  @@index([universityId])
+  @@index([studentId])
+  @@index([semester])
+  @@index([year])
+  @@index([status])
+}
+
+model Analytics {
+  id              String   @id @default(cuid())
+  type            AnalyticsType
+  period          String
+  startDate       DateTime
+  endDate         DateTime
+  data            Json     // Dados específicos do analytics
+  metrics         Json     // Métricas calculadas
+  insights        Json     // Insights gerados
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([type])
+  @@index([period])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model ContentModeration {
+  id              String   @id @default(cuid())
+  contentType     ContentType
+  contentId       String
+  reportedBy      String?
+  reason          ModerationReason
+  description     String
+  status          ModerationStatus @default(PENDING)
+  moderatedAt     DateTime?
+  moderatedBy     String?
+  action          ModerationAction?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relacionamentos
+  reporter        User?    @relation("ContentModerationReporter", fields: [reportedBy], references: [id])
+  moderator       User?    @relation("ContentModerationModerator", fields: [moderatedBy], references: [id])
+
+  @@index([contentType])
+  @@index([contentId])
+  @@index([reportedBy])
+  @@index([status])
+  @@index([moderatedAt])
+}
+
+// Enums para o sistema de avaliações
+enum EvaluationType {
+  VOLUNTEER_TO_INSTITUTION
+  INSTITUTION_TO_VOLUNTEER
+  VOLUNTEER_TO_ACTIVITY
+  INSTITUTION_TO_ACTIVITY
+  PEER_TO_PEER
+}
+
+enum EvaluationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MODERATED
+  HIDDEN
+}
+
+enum ReportReason {
+  INAPPROPRIATE_CONTENT
+  FALSE_INFORMATION
+  HARASSMENT
+  SPAM
+  INAPPROPRIATE_RATING
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  REVOKED
+}
+
+enum ParticipationStatus {
+  REGISTERED
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum BlockReason {
+  INAPPROPRIATE_BEHAVIOR
+  SPAM
+  HARASSMENT
+  FRAUD
+  VIOLATION_OF_TERMS
+  OTHER
+}
+
+enum EngagementStatus {
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+  GRADUATED
+}
+
+enum AnalyticsType {
+  USER_ENGAGEMENT
+  ACTIVITY_PARTICIPATION
+  EVALUATION_METRICS
+  IMPACT_MEASUREMENT
+  SYSTEM_USAGE
+  CUSTOM
+}
+
+enum ContentType {
+  EVALUATION
+  OPPORTUNITY
+  USER_PROFILE
+  MESSAGE
+  COMMENT
+  OTHER
+}
+
+enum ModerationReason {
+  INAPPROPRIATE_CONTENT
+  HARASSMENT
+  SPAM
+  FALSE_INFORMATION
+  VIOLATION_OF_TERMS
+  OTHER
+}
+
+enum ModerationStatus {
+  PENDING
+  REVIEWED
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+enum ModerationAction {
+  APPROVE
+  REJECT
+  HIDE
+  DELETE
+  WARN
+  SUSPEND
+}
