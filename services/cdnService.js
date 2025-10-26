@@ -1,380 +1,429 @@
-import multer from 'multer';
-import sharp from 'sharp';
-import path from 'path';
-import fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
-import AWS from 'aws-sdk';
-import dotenv from 'dotenv';
-
-dotenv.config();
+const AWS = require('aws-sdk');
+const sharp = require('sharp');
+const path = require('path');
+const fs = require('fs');
+const config = require('../config/production');
 
 class CDNService {
   constructor() {
-    this.uploadDir = process.env.UPLOAD_DIR || './uploads';
-    this.cdnUrl = process.env.CDN_URL || 'https://your-cdn-domain.com';
-    this.maxFileSize = parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024; // 10MB
-    this.allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    
-    // Configurar AWS S3 (ou outro provedor de CDN)
-    this.s3 = new AWS.S3({
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      region: process.env.AWS_REGION || 'us-east-1'
-    });
-    
-    this.bucketName = process.env.S3_BUCKET_NAME || 'volunteer-app-images';
-    
-    this.ensureUploadDirectory();
+    this.s3 = null;
+    this.cloudFront = null;
+    this.initializeServices();
   }
 
-  ensureUploadDirectory() {
-    if (!fs.existsSync(this.uploadDir)) {
-      fs.mkdirSync(this.uploadDir, { recursive: true });
+  initializeServices() {
+    // Initialize S3
+    if (config.aws.accessKeyId && config.aws.secretAccessKey) {
+      this.s3 = new AWS.S3({
+        accessKeyId: config.aws.accessKeyId,
+        secretAccessKey: config.aws.secretAccessKey,
+        region: config.aws.region
+      });
+    }
+
+    // Initialize CloudFront
+    if (config.aws.accessKeyId && config.aws.secretAccessKey) {
+      this.cloudFront = new AWS.CloudFront({
+        accessKeyId: config.aws.accessKeyId,
+        secretAccessKey: config.aws.secretAccessKey,
+        region: config.aws.region
+      });
     }
   }
 
-  // Configurar multer para upload
-  getMulterConfig() {
-    const storage = multer.diskStorage({
-      destination: (req, file, cb) => {
-        cb(null, this.uploadDir);
-      },
-      filename: (req, file, cb) => {
-        const uniqueName = `${uuidv4()}-${Date.now()}${path.extname(file.originalname)}`;
-        cb(null, uniqueName);
-      }
-    });
-
-    const fileFilter = (req, file, cb) => {
-      if (this.allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-      } else {
-        cb(new Error('Tipo de arquivo não permitido. Apenas imagens são aceitas.'), false);
-      }
-    };
-
-    return multer({
-      storage,
-      fileFilter,
-      limits: {
-        fileSize: this.maxFileSize
-      }
-    });
-  }
-
-  // Processar e otimizar imagem
-  async processImage(filePath, options = {}) {
-    const {
-      width = 800,
-      height = 600,
-      quality = 80,
-      format = 'jpeg',
-      resize = true
-    } = options;
-
-    try {
-      let image = sharp(filePath);
-
-      if (resize) {
-        image = image.resize(width, height, {
-          fit: 'inside',
-          withoutEnlargement: true
-        });
-      }
-
-      // Aplicar otimizações baseadas no formato
-      switch (format) {
-        case 'jpeg':
-          image = image.jpeg({ quality });
-          break;
-        case 'png':
-          image = image.png({ quality });
-          break;
-        case 'webp':
-          image = image.webp({ quality });
-          break;
-        case 'gif':
-          image = image.gif();
-          break;
-      }
-
-      const processedBuffer = await image.toBuffer();
-      return processedBuffer;
-    } catch (error) {
-      console.error('Error processing image:', error);
-      throw new Error(`Failed to process image: ${error.message}`);
-    }
-  }
-
-  // Gerar diferentes tamanhos da imagem
-  async generateImageSizes(filePath) {
-    const sizes = [
-      { name: 'thumbnail', width: 150, height: 150 },
-      { name: 'small', width: 400, height: 300 },
-      { name: 'medium', width: 800, height: 600 },
-      { name: 'large', width: 1200, height: 900 }
-    ];
-
-    const processedImages = {};
-
-    for (const size of sizes) {
-      try {
-        const processedBuffer = await this.processImage(filePath, {
-          width: size.width,
-          height: size.height,
-          quality: 85
-        });
-
-        const fileName = path.basename(filePath, path.extname(filePath));
-        const extension = path.extname(filePath);
-        const newFileName = `${fileName}_${size.name}${extension}`;
-        const newFilePath = path.join(path.dirname(filePath), newFileName);
-
-        fs.writeFileSync(newFilePath, processedBuffer);
-        processedImages[size.name] = {
-          fileName: newFileName,
-          filePath: newFilePath,
-          width: size.width,
-          height: size.height,
-          size: processedBuffer.length
-        };
-      } catch (error) {
-        console.error(`Error generating ${size.name} size:`, error);
-      }
-    }
-
-    return processedImages;
-  }
-
-  // Upload para CDN (AWS S3)
-  async uploadToCDN(filePath, key, contentType) {
+  // Upload file to S3
+  async uploadFile(filePath, key, options = {}) {
     try {
       const fileContent = fs.readFileSync(filePath);
+      const contentType = this.getContentType(filePath);
       
-      const params = {
-        Bucket: this.bucketName,
+      const uploadParams = {
+        Bucket: config.aws.s3Bucket,
         Key: key,
         Body: fileContent,
         ContentType: contentType,
-        ACL: 'public-read'
+        ACL: options.acl || 'public-read',
+        CacheControl: options.cacheControl || 'max-age=31536000',
+        Metadata: {
+          'upload-date': new Date().toISOString(),
+          'original-name': path.basename(filePath)
+        }
       };
 
-      const result = await this.s3.upload(params).promise();
-      return result.Location;
+      const result = await this.s3.upload(uploadParams).promise();
+      
+      return {
+        success: true,
+        url: result.Location,
+        key: key,
+        etag: result.ETag
+      };
     } catch (error) {
-      console.error('Error uploading to CDN:', error);
-      throw new Error(`Failed to upload to CDN: ${error.message}`);
+      console.error('Failed to upload file to S3:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
-  // Upload de imagem completa
-  async uploadImage(file, options = {}) {
+  // Upload image with optimization
+  async uploadImage(filePath, key, options = {}) {
     try {
       const {
-        generateSizes = true,
-        uploadToCDN = true,
-        folder = 'images'
+        width = null,
+        height = null,
+        quality = 80,
+        format = 'webp',
+        resize = true
       } = options;
 
-      const fileId = uuidv4();
-      const fileExtension = path.extname(file.originalname);
-      const baseFileName = `${fileId}${fileExtension}`;
-      const folderPath = path.join(this.uploadDir, folder);
+      let processedImage;
       
-      // Criar pasta se não existir
-      if (!fs.existsSync(folderPath)) {
-        fs.mkdirSync(folderPath, { recursive: true });
+      if (resize && (width || height)) {
+        processedImage = await sharp(filePath)
+          .resize(width, height, { 
+            fit: 'inside',
+            withoutEnlargement: true 
+          })
+          .toFormat(format, { quality })
+          .toBuffer();
+      } else {
+        processedImage = await sharp(filePath)
+          .toFormat(format, { quality })
+          .toBuffer();
       }
 
-      const filePath = path.join(folderPath, baseFileName);
-      
-      // Salvar arquivo original
-      fs.writeFileSync(filePath, file.buffer);
-
-      const imageData = {
-        id: fileId,
-        originalName: file.originalname,
-        fileName: baseFileName,
-        filePath,
-        size: file.size,
-        mimeType: file.mimetype,
-        uploadedAt: new Date().toISOString(),
-        sizes: {}
+      const uploadParams = {
+        Bucket: config.aws.s3Bucket,
+        Key: key,
+        Body: processedImage,
+        ContentType: `image/${format}`,
+        ACL: 'public-read',
+        CacheControl: 'max-age=31536000',
+        Metadata: {
+          'upload-date': new Date().toISOString(),
+          'original-name': path.basename(filePath),
+          'processed': 'true',
+          'format': format,
+          'quality': quality.toString()
+        }
       };
 
-      // Gerar diferentes tamanhos
-      if (generateSizes) {
-        const processedSizes = await this.generateImageSizes(filePath);
-        imageData.sizes = processedSizes;
-      }
-
-      // Upload para CDN
-      if (uploadToCDN) {
-        const cdnKey = `${folder}/${baseFileName}`;
-        const cdnUrl = await this.uploadToCDN(filePath, cdnKey, file.mimetype);
-        imageData.cdnUrl = cdnUrl;
-
-        // Upload dos tamanhos para CDN
-        if (generateSizes && imageData.sizes) {
-          for (const [sizeName, sizeData] of Object.entries(imageData.sizes)) {
-            const sizeCdnKey = `${folder}/${sizeData.fileName}`;
-            const sizeCdnUrl = await this.uploadToCDN(
-              sizeData.filePath, 
-              sizeCdnKey, 
-              file.mimetype
-            );
-            imageData.sizes[sizeName].cdnUrl = sizeCdnUrl;
-          }
-        }
-      }
-
-      return imageData;
+      const result = await this.s3.upload(uploadParams).promise();
+      
+      return {
+        success: true,
+        url: result.Location,
+        key: key,
+        etag: result.ETag,
+        size: processedImage.length,
+        format: format
+      };
     } catch (error) {
-      console.error('Error uploading image:', error);
-      throw new Error(`Failed to upload image: ${error.message}`);
+      console.error('Failed to upload image to S3:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
-  // Deletar imagem do CDN
-  async deleteFromCDN(key) {
+  // Upload multiple image sizes
+  async uploadImageSizes(filePath, baseKey, sizes = []) {
     try {
-      const params = {
-        Bucket: this.bucketName,
+      const results = [];
+      
+      for (const size of sizes) {
+        const { width, height, suffix } = size;
+        const key = `${baseKey}_${suffix}`;
+        
+        const result = await this.uploadImage(filePath, key, {
+          width,
+          height,
+          quality: 80,
+          format: 'webp'
+        });
+        
+        results.push({
+          size: suffix,
+          width,
+          height,
+          ...result
+        });
+      }
+      
+      return {
+        success: true,
+        sizes: results
+      };
+    } catch (error) {
+      console.error('Failed to upload image sizes:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Delete file from S3
+  async deleteFile(key) {
+    try {
+      const deleteParams = {
+        Bucket: config.aws.s3Bucket,
         Key: key
       };
 
-      await this.s3.deleteObject(params).promise();
-      return true;
+      await this.s3.deleteObject(deleteParams).promise();
+      
+      return {
+        success: true,
+        message: `File ${key} deleted successfully`
+      };
     } catch (error) {
-      console.error('Error deleting from CDN:', error);
-      throw new Error(`Failed to delete from CDN: ${error.message}`);
+      console.error('Failed to delete file from S3:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
-  // Deletar imagem local
-  deleteLocalFile(filePath) {
+  // List files in S3
+  async listFiles(prefix = '', maxKeys = 1000) {
     try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        return true;
-      }
-      return false;
+      const listParams = {
+        Bucket: config.aws.s3Bucket,
+        Prefix: prefix,
+        MaxKeys: maxKeys
+      };
+
+      const result = await this.s3.listObjectsV2(listParams).promise();
+      
+      const files = result.Contents.map(obj => ({
+        key: obj.Key,
+        size: obj.Size,
+        lastModified: obj.LastModified,
+        etag: obj.ETag,
+        url: `https://${config.aws.s3Bucket}.s3.${config.aws.region}.amazonaws.com/${obj.Key}`
+      }));
+
+      return {
+        success: true,
+        files: files,
+        total: result.KeyCount
+      };
     } catch (error) {
-      console.error('Error deleting local file:', error);
-      return false;
+      console.error('Failed to list files from S3:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
-  // Deletar imagem completa (local + CDN)
-  async deleteImage(imageData) {
-    try {
-      const deletedFiles = [];
+  // Get file URL
+  getFileUrl(key) {
+    return `https://${config.aws.s3Bucket}.s3.${config.aws.region}.amazonaws.com/${key}`;
+  }
 
-      // Deletar arquivo original local
-      if (this.deleteLocalFile(imageData.filePath)) {
-        deletedFiles.push(imageData.filePath);
+  // Get CloudFront URL
+  getCloudFrontUrl(key) {
+    if (config.cdn.url) {
+      return `${config.cdn.url}/${key}`;
+    }
+    return this.getFileUrl(key);
+  }
+
+  // Generate signed URL
+  async generateSignedUrl(key, expiresIn = 3600) {
+    try {
+      const params = {
+        Bucket: config.aws.s3Bucket,
+        Key: key,
+        Expires: expiresIn
+      };
+
+      const url = await this.s3.getSignedUrlPromise('getObject', params);
+      
+      return {
+        success: true,
+        url: url,
+        expiresIn: expiresIn
+      };
+    } catch (error) {
+      console.error('Failed to generate signed URL:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Invalidate CloudFront cache
+  async invalidateCache(paths) {
+    try {
+      if (!this.cloudFront) {
+        throw new Error('CloudFront not configured');
       }
 
-      // Deletar tamanhos locais
-      if (imageData.sizes) {
-        for (const sizeData of Object.values(imageData.sizes)) {
-          if (this.deleteLocalFile(sizeData.filePath)) {
-            deletedFiles.push(sizeData.filePath);
+      const params = {
+        DistributionId: config.aws.cloudFrontDistributionId,
+        InvalidationBatch: {
+          CallerReference: `invalidation-${Date.now()}`,
+          Paths: {
+            Quantity: paths.length,
+            Items: paths
           }
         }
-      }
+      };
 
-      // Deletar do CDN
-      if (imageData.cdnUrl) {
-        const cdnKey = imageData.cdnUrl.split('/').pop();
-        await this.deleteFromCDN(cdnKey);
-        deletedFiles.push(`CDN: ${cdnKey}`);
+      const result = await this.cloudFront.createInvalidation(params).promise();
+      
+      return {
+        success: true,
+        invalidationId: result.Invalidation.Id,
+        status: result.Invalidation.Status
+      };
+    } catch (error) {
+      console.error('Failed to invalidate CloudFront cache:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Get content type
+  getContentType(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    
+    const contentTypes = {
+      '.html': 'text/html',
+      '.css': 'text/css',
+      '.js': 'application/javascript',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.svg': 'image/svg+xml',
+      '.webp': 'image/webp',
+      '.ico': 'image/x-icon',
+      '.pdf': 'application/pdf',
+      '.zip': 'application/zip',
+      '.mp4': 'video/mp4',
+      '.mp3': 'audio/mpeg'
+    };
+
+    return contentTypes[ext] || 'application/octet-stream';
+  }
+
+  // Optimize image
+  async optimizeImage(inputPath, outputPath, options = {}) {
+    try {
+      const {
+        width = null,
+        height = null,
+        quality = 80,
+        format = 'webp'
+      } = options;
+
+      await sharp(inputPath)
+        .resize(width, height, { 
+          fit: 'inside',
+          withoutEnlargement: true 
+        })
+        .toFormat(format, { quality })
+        .toFile(outputPath);
+
+      return {
+        success: true,
+        outputPath: outputPath,
+        format: format
+      };
+    } catch (error) {
+      console.error('Failed to optimize image:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Upload static assets
+  async uploadStaticAssets(assetsDir) {
+    try {
+      const results = [];
+      const files = fs.readdirSync(assetsDir, { recursive: true });
+
+      for (const file of files) {
+        if (fs.statSync(path.join(assetsDir, file)).isFile()) {
+          const filePath = path.join(assetsDir, file);
+          const key = `static/${file}`;
+          
+          const result = await this.uploadFile(filePath, key, {
+            cacheControl: 'max-age=31536000'
+          });
+          
+          results.push({
+            file: file,
+            key: key,
+            ...result
+          });
+        }
       }
 
       return {
         success: true,
-        deletedFiles,
-        message: `Deleted ${deletedFiles.length} files`
+        uploaded: results.length,
+        results: results
       };
     } catch (error) {
-      console.error('Error deleting image:', error);
-      throw new Error(`Failed to delete image: ${error.message}`);
+      console.error('Failed to upload static assets:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
-  // Obter URL da imagem
-  getImageUrl(imageData, size = 'original') {
-    if (size === 'original') {
-      return imageData.cdnUrl || `${this.cdnUrl}/${imageData.fileName}`;
-    }
-
-    if (imageData.sizes && imageData.sizes[size]) {
-      return imageData.sizes[size].cdnUrl || 
-             `${this.cdnUrl}/${imageData.sizes[size].fileName}`;
-    }
-
-    return imageData.cdnUrl || `${this.cdnUrl}/${imageData.fileName}`;
-  }
-
-  // Validar arquivo de imagem
-  validateImageFile(file) {
-    const errors = [];
-
-    if (!file) {
-      errors.push('Nenhum arquivo fornecido');
-      return { valid: false, errors };
-    }
-
-    if (!this.allowedTypes.includes(file.mimetype)) {
-      errors.push('Tipo de arquivo não permitido');
-    }
-
-    if (file.size > this.maxFileSize) {
-      errors.push(`Arquivo muito grande. Máximo: ${this.maxFileSize / 1024 / 1024}MB`);
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
-
-  // Obter estatísticas de uso
-  async getStorageStats() {
+  // Get CDN statistics
+  async getCDNStats() {
     try {
-      const params = {
-        Bucket: this.bucketName,
-        MaxKeys: 1000
+      const stats = {
+        s3Bucket: config.aws.s3Bucket,
+        cloudFrontUrl: config.cdn.url,
+        region: config.aws.region,
+        timestamp: Date.now()
       };
 
-      const result = await this.s3.listObjectsV2(params).promise();
-      
-      let totalSize = 0;
-      let imageCount = 0;
+      // Get S3 bucket info
+      if (this.s3) {
+        const listParams = {
+          Bucket: config.aws.s3Bucket,
+          MaxKeys: 1
+        };
 
-      if (result.Contents) {
-        for (const object of result.Contents) {
-          totalSize += object.Size;
-          if (this.allowedTypes.some(type => object.Key.includes(type))) {
-            imageCount++;
-          }
-        }
+        const result = await this.s3.listObjectsV2(listParams).promise();
+        stats.totalObjects = result.KeyCount;
       }
 
       return {
-        totalImages: imageCount,
-        totalSize,
-        totalSizeMB: Math.round(totalSize / 1024 / 1024 * 100) / 100,
-        bucketName: this.bucketName
+        success: true,
+        data: stats
       };
     } catch (error) {
-      console.error('Error getting storage stats:', error);
-      throw new Error(`Failed to get storage stats: ${error.message}`);
+      console.error('Failed to get CDN stats:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 }
 
-// Singleton instance
+// Create singleton instance
 const cdnService = new CDNService();
 
-export default cdnService;
+module.exports = cdnService;
