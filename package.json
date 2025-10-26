@@ -40,7 +40,12 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node scripts/seedDatabase.js",
+    "db:reset": "prisma migrate reset",
+    "create:admin": "node scripts/createAdmin.js",
+    "health:check": "node scripts/healthCheck.js",
+    "logs": "tail -f logs/app.log",
+    "clean": "rm -rf node_modules package-lock.json && npm install"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",
