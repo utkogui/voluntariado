@@ -5,8 +5,8 @@
  * Execute: node scripts/seedDatabase.js
  */
 
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -367,8 +367,8 @@ async function seedDatabase() {
 }
 
 // Executar se chamado diretamente
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   seedDatabase();
 }
 
-module.exports = { seedDatabase };
+export { seedDatabase };

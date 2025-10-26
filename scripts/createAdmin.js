@@ -5,8 +5,8 @@
  * Execute: node scripts/createAdmin.js
  */
 
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -69,8 +69,8 @@ async function createAdmin() {
 }
 
 // Executar se chamado diretamente
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   createAdmin();
 }
 
-module.exports = { createAdmin };
+export { createAdmin };

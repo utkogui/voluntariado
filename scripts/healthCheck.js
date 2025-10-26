@@ -5,8 +5,8 @@
  * Execute: node scripts/healthCheck.js
  */
 
-const { PrismaClient } = require('@prisma/client');
-const axios = require('axios');
+import { PrismaClient } from '@prisma/client';
+import axios from 'axios';
 
 const prisma = new PrismaClient();
 
@@ -157,10 +157,10 @@ async function healthCheck() {
 }
 
 // Executar se chamado diretamente
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   healthCheck()
     .catch(console.error)
     .finally(() => prisma.$disconnect());
 }
 
-module.exports = { healthCheck };
+export { healthCheck };
